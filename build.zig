@@ -13,9 +13,11 @@ pub fn addInstrumentedExe(
 ) ?std.Build.LazyPath {
     const afl_kit = b.dependencyFromBuildZig(@This(), .{});
 
-    std.debug.assert(obj.root_module.stack_check == false); // not linking with compiler-rt
-    std.debug.assert(obj.root_module.link_libc == true); // afl runtime depends on libc
-    std.debug.assert(obj.sanitize_coverage_trace_pc_guard == true); // must have zig instrument the binary (or instrumentation fails on macos)
+    obj.root_module.stack_check = false; // not linking with compiler-rt
+    obj.root_module.link_libc = true; // afl runtime depends on libc
+    if (target.result.os.tag == .macos) {
+        obj.sanitize_coverage_trace_pc_guard = true; // must have zig instrument the binary (or instrumentation fails on macos)
+    }
 
     var run_afl_cc: *std.Build.Step.Run = undefined;
     if (!use_system_afl) {
@@ -50,7 +52,12 @@ pub fn addInstrumentedExe(
     }
     const fuzz_exe = run_afl_cc.addOutputFileArg(obj.name);
     run_afl_cc.addFileArg(afl_kit.path("afl.c"));
-    run_afl_cc.addFileArg(obj.getEmittedBin());
+    if (target.result.os.tag == .macos) {
+        run_afl_cc.addFileArg(obj.getEmittedBin());
+    } else {
+        _ = obj.getEmittedBin(); // workaround build system limitations
+        run_afl_cc.addFileArg(obj.getEmittedLlvmBc());
+    }
     return fuzz_exe;
 }
 
