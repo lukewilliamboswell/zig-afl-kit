@@ -13,36 +13,9 @@ pub fn addInstrumentedExe(
 ) ?std.Build.LazyPath {
     const afl_kit = b.dependencyFromBuildZig(@This(), .{});
 
-    // TODO: validate obj
-
-    // std.debug.assert(obj.root_module.stack_check == false); // not linking with compiler-rt
-    // std.debug.assert(obj.root_module.link_libc == true); // afl runtime depends on libc
-
-    if (false) {
-        const exe = b.addExecutable(.{
-            .name = obj.name,
-            .target = target,
-            .optimize = optimize,
-        });
-        // exe.root_module.fuzz = false;
-        exe.root_module.link_libc = true;
-        exe.addCSourceFile(.{
-            .file = afl_kit.path("afl.c"),
-            .flags = &.{},
-        });
-        obj.root_module.fuzz = true;
-        obj.root_module.link_libc = true;
-        obj.sanitize_coverage_trace_pc_guard = true;
-        exe.addObject(obj);
-
-        // exe.addObject(afl_kit.path("afl-compiler-rt.o"));
-        exe.addCSourceFile(.{
-            .file = afl_kit.path("afl-compiler-rt.o"),
-            .flags = &.{},
-        });
-
-        return exe;
-    }
+    std.debug.assert(obj.root_module.stack_check == false); // not linking with compiler-rt
+    std.debug.assert(obj.root_module.link_libc == true); // afl runtime depends on libc
+    std.debug.assert(obj.sanitize_coverage_trace_pc_guard == true); // must have zig instrument the binary (or instrumentation fails on macos)
 
     var run_afl_cc: *std.Build.Step.Run = undefined;
     if (!use_system_afl) {
@@ -75,11 +48,9 @@ pub fn addInstrumentedExe(
             "-o",
         });
     }
-    _ = obj.getEmittedBin(); // hack around build system bug
-
     const fuzz_exe = run_afl_cc.addOutputFileArg(obj.name);
     run_afl_cc.addFileArg(afl_kit.path("afl.c"));
-    run_afl_cc.addFileArg(obj.getEmittedLlvmBc());
+    run_afl_cc.addFileArg(obj.getEmittedBin());
     return fuzz_exe;
 }
 

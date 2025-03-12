@@ -33,9 +33,11 @@ const afl_obj = b.addObject(.{
 // Required options:
 afl_obj.root_module.stack_check = false; // not linking with compiler-rt
 afl_obj.root_module.link_libc = true; // afl runtime depends on libc
+afl_obj.sanitize_coverage_trace_pc_guard = true; // must have zig instrument the binary (or instrumentation fails on macos)
 
 // Generate an instrumented executable:
-const afl_fuzz = afl.addInstrumentedExe(b, target, optimize, afl_obj);
+const use_system_afl = false; // controls if zig will build afl or use the system installed version.
+const afl_fuzz = afl.addInstrumentedExe(b, target, optimize, .{}, use_system_afl, afl_obj);
 
 // Install it
 fuzz.dependOn(&b.addInstallBinFile(afl_fuzz, "myfuzz-afl").step);
